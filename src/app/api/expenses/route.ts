@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { validateExpense } from "@/lib/domain";
-import { currentEmployee, db, getSession, recordSheetSyncFailure, syncExpense } from "@/lib/server";
+import { currentEmployee, db, getSession, recordNotification, recordSheetSyncFailure, sendTelegram, syncExpense } from "@/lib/server";
 
 export async function POST(request: Request) {
   try {
@@ -31,7 +31,14 @@ export async function POST(request: Request) {
     }
     let sync = "synced";
     try { await syncExpense(inserted.data.id); } catch (error) { sync = "pending"; await recordSheetSyncFailure("expenses", inserted.data.id, error); }
-    return NextResponse.json({ ok: true, record: inserted.data, sync, message: `Expense ${inserted.data.reference} recorded as ${overhead ? "Allocated to Company overhead" : "Awaiting allocation"}.` }, { status: 201 });
+    let notified = "No Telegram recipient linked";
+    if (inserted.data.telegram_chat_id) {
+      const status = overhead ? "Allocated to Company overhead" : "Awaiting allocation";
+      const message = `Expense ${inserted.data.reference} recorded. €${(inserted.data.amount_cents / 100).toFixed(2)}, proposed allocation ${inserted.data.proposed_allocation}, status ${status}.${sync === "synced" ? "" : " Google Sheets sync pending; the record is saved."}`;
+      try { await sendTelegram(inserted.data.telegram_chat_id, message); await recordNotification("expenses", inserted.data.id, "sent"); notified = "sent"; }
+      catch (error) { await recordNotification("expenses", inserted.data.id, "failed", error); notified = "failed"; }
+    }
+    return NextResponse.json({ ok: true, record: inserted.data, sync, notified, message: `Expense ${inserted.data.reference} recorded as ${overhead ? "Allocated to Company overhead" : "Awaiting allocation"}.` }, { status: 201 });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to record expense." }, { status: 400 });
   }

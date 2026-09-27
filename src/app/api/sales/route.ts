@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { validateSale } from "@/lib/domain";
-import { currentEmployee, db, getSession, recordSheetSyncFailure, syncSale } from "@/lib/server";
+import { currentEmployee, db, getSession, recordNotification, recordSheetSyncFailure, sendTelegram, syncSale } from "@/lib/server";
 
 export async function POST(request: Request) {
   try {
@@ -25,7 +25,13 @@ export async function POST(request: Request) {
     }
     let sync = "synced";
     try { await syncSale(inserted.data.id); } catch (error) { sync = "pending"; await recordSheetSyncFailure("sales", inserted.data.id, error); }
-    return NextResponse.json({ ok: true, record: inserted.data, sync, message: `Sale ${inserted.data.reference} recorded as Pending approval.` }, { status: 201 });
+    let notified = "No Telegram recipient linked";
+    if (inserted.data.telegram_chat_id) {
+      const message = `Sale ${inserted.data.reference} recorded. €${(inserted.data.amount_cents / 100).toFixed(2)}, project ${inserted.data.project}, status Pending approval.${sync === "synced" ? "" : " Google Sheets sync pending; the record is saved."}`;
+      try { await sendTelegram(inserted.data.telegram_chat_id, message); await recordNotification("sales", inserted.data.id, "sent"); notified = "sent"; }
+      catch (error) { await recordNotification("sales", inserted.data.id, "failed", error); notified = "failed"; }
+    }
+    return NextResponse.json({ ok: true, record: inserted.data, sync, notified, message: `Sale ${inserted.data.reference} recorded as Pending approval.` }, { status: 201 });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to record sale." }, { status: 400 });
   }
