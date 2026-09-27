@@ -12,7 +12,7 @@ const cookieName = "friends_included_demo";
 const sessionSecret = () => process.env.DEMO_SESSION_SECRET || (process.env.NODE_ENV === "development" ? "local-only-friends-included-demo-secret-change-before-deploy" : "");
 
 export function db(): SupabaseClient {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) throw new Error("Supabase is not configured. Add the server-side project URL and service key.");
   return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });

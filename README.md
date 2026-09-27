@@ -10,7 +10,7 @@ A fictional finance workflow for Wedding Guests for Hire. Supabase is the source
 
 Required server-side variables:
 
-- `NEXT_PUBLIC_SUPABASE_URL`: the Supabase project URL.
+- `SUPABASE_URL`: the Supabase project URL used by server code. `NEXT_PUBLIC_SUPABASE_URL` remains supported as a fallback for older deployments.
 - `SUPABASE_SERVICE_ROLE_KEY`: the Supabase service-role key; server only.
 - `GOOGLE_SPREADSHEET_ID`: the ID of the Friends Included project data spreadsheet.
 - `GOOGLE_SERVICE_ACCOUNT_JSON_BASE64`: the service-account JSON key encoded as base64; server only.
