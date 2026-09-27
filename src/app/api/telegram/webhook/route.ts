@@ -13,8 +13,10 @@ async function reply(chatId: string, text: string) {
 export async function POST(request: Request) {
   const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
   if (!secret || request.headers.get("x-telegram-bot-api-secret-token") !== secret) return NextResponse.json({ ok: false }, { status: 401 });
+  let stage = "reading Telegram update";
   try {
     const update = await request.json() as TelegramUpdate;
+    stage = "validating Telegram message";
     const message = update.message;
     const text = message?.text?.trim();
     const userId = message?.from?.id;
@@ -22,9 +24,11 @@ export async function POST(request: Request) {
     if (!text || !userId || !chatId) return NextResponse.json({ ok: true });
     const destination = String(chatId);
     if (text === "/id" || text.startsWith("/id@")) {
+      stage = "replying to /id";
       await reply(destination, `Telegram user ID: ${userId}\nChat ID: ${chatId}\nGive both IDs to Svetlana to link your staff role.`);
       return NextResponse.json({ ok: true });
     }
+    stage = "looking up the employee";
     const { data: employee } = await db().from("employees").select("*").eq("telegram_user_id", String(userId)).maybeSingle();
     if (!employee) {
       await reply(destination, "This Telegram account is not linked to a staff role yet. Send /id and ask Svetlana to link your account.");
@@ -81,7 +85,9 @@ export async function POST(request: Request) {
     }
     await reply(destination, "Use /help for the submission formats.");
     return NextResponse.json({ ok: true });
-  } catch {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error(`Telegram webhook failed while ${stage}: ${message}`);
     return NextResponse.json({ ok: false }, { status: 500 });
   }
 }
