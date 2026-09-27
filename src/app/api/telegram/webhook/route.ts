@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { validateExpense, validateSale } from "@/lib/domain";
+import { normalizeExpenseAllocation, validateExpense, validateSale } from "@/lib/domain";
 import { db, recordNotification, recordSheetSyncFailure, sendTelegram, syncExpense, syncSale } from "@/lib/server";
 
 type TelegramUpdate = {
@@ -65,7 +65,7 @@ export async function POST(request: Request) {
       const fields = text.replace(/^\/expense(?:@\w+)?\s*/i, "").split("|").map((part) => part.trim());
       if (fields.length !== 5) { await reply(destination, "Format: /expense E01 | Description | Materials, Travel, or Other | Amount | A, B, or Company overhead"); return NextResponse.json({ ok: true }); }
       const [reference, description, category, amount, proposedAllocation] = fields;
-      const allocation = proposedAllocation.toLowerCase() === "overhead" ? "Company overhead" : proposedAllocation.toUpperCase();
+      const allocation = normalizeExpenseAllocation(proposedAllocation);
       let amountCents: number;
       try { ({ amountCents } = validateExpense({ reference, description, category, amount, allocation })); }
       catch (error) { await reply(destination, error instanceof Error ? error.message : "Check the expense details."); return NextResponse.json({ ok: true }); }

@@ -14,13 +14,18 @@ export const money = (cents: number) => new Intl.NumberFormat("en-IE", {
   style: "currency", currency: "EUR", minimumFractionDigits: 2,
 }).format((Number(cents) || 0) / 100);
 
+export function normalizeExpenseAllocation(value: string) {
+  const normalized = value.trim().toLowerCase();
+  return normalized === "overhead" || normalized === "company overhead" ? "Company overhead" : normalized.toUpperCase();
+}
+
 export function validateSale(input: Record<string, unknown>) {
   const required = ["reference", "customer", "project", "description"];
   for (const key of required) if (!String(input[key] ?? "").trim()) throw new Error(`${key} is required.`);
   if (!/^S\d{2,}$/.test(String(input.reference).trim())) throw new Error("Use a reference such as S01.");
   if (!["A", "B"].includes(String(input.project))) throw new Error("Project must be A or B.");
   const amount = Number(input.amount);
-  if (!Number.isFinite(amount) || amount <= 0) throw new Error("Amount must be greater than zero.");
+  if (!Number.isFinite(amount) || amount < 0.01) throw new Error("Amount must be at least €0.01.");
   const shares = [Number(input.richard), Number(input.anastasia), Number(input.jeanClaude)];
   if (shares.some((v) => !Number.isFinite(v) || v < 0 || v > 100)) throw new Error("Each commission share must be between 0% and 100%.");
   if (shares.reduce((a, b) => a + b, 0) !== 100) throw new Error("Commission shares must total exactly 100%.");
@@ -31,7 +36,7 @@ export function validateExpense(input: Record<string, unknown>) {
   for (const key of ["reference", "description", "category", "allocation"]) if (!String(input[key] ?? "").trim()) throw new Error(`${key} is required.`);
   if (!/^E\d{2,}$/.test(String(input.reference).trim())) throw new Error("Use a reference such as E01.");
   const amount = Number(input.amount);
-  if (!Number.isFinite(amount) || amount <= 0) throw new Error("Amount must be greater than zero.");
+  if (!Number.isFinite(amount) || amount < 0.01) throw new Error("Amount must be at least €0.01.");
   if (!["Materials", "Travel", "Other"].includes(String(input.category))) throw new Error("Choose Materials, Travel, or Other.");
   if (!["A", "B", "Company overhead"].includes(String(input.allocation))) throw new Error("Choose project A, project B, or Company overhead.");
   return { amountCents: Math.round(amount * 100) };

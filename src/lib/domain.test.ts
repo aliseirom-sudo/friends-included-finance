@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { calculateCommissions, calculateSummary, validateSale, validateExpense } from "./domain";
+import { calculateCommissions, calculateSummary, normalizeExpenseAllocation, validateSale, validateExpense } from "./domain";
 
 test("commission pool is 10% and rounding difference follows share priority", () => {
   assert.deepEqual(calculateCommissions(100000, [50, 30, 20]), { poolCents: 10000, earnedCents: [5000, 3000, 2000] });
@@ -10,8 +10,15 @@ test("commission pool is 10% and rounding difference follows share priority", ()
 
 test("invalid entries are rejected before persistence", () => {
   assert.throws(() => validateSale({ reference:"S01", customer:"x", project:"A", description:"x", amount:1, richard:60, anastasia:30, jeanClaude:20 }), /total exactly 100/);
-  assert.throws(() => validateSale({ reference:"S01", customer:"x", project:"A", description:"x", amount:0, richard:50, anastasia:30, jeanClaude:20 }), /greater than zero/);
-  assert.throws(() => validateExpense({ reference:"E01", description:"x", category:"Travel", amount:-1, allocation:"A" }), /greater than zero/);
+  assert.throws(() => validateSale({ reference:"S01", customer:"x", project:"A", description:"x", amount:0, richard:50, anastasia:30, jeanClaude:20 }), /at least €0.01/);
+  assert.throws(() => validateSale({ reference:"S01", customer:"x", project:"A", description:"x", amount:0.004, richard:50, anastasia:30, jeanClaude:20 }), /at least €0.01/);
+  assert.throws(() => validateExpense({ reference:"E01", description:"x", category:"Travel", amount:-1, allocation:"A" }), /at least €0.01/);
+});
+
+test("Telegram expense allocation accepts the documented overhead wording", () => {
+  assert.equal(normalizeExpenseAllocation("overhead"), "Company overhead");
+  assert.equal(normalizeExpenseAllocation("Company overhead"), "Company overhead");
+  assert.equal(normalizeExpenseAllocation("COMPANY OVERHEAD"), "Company overhead");
 });
 
 test("pending sales and awaiting expenses follow project and company rules", () => {
